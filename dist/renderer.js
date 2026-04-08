@@ -11,7 +11,7 @@ window.codeactAPI.onToken((token) => {
 });
 runBtn.addEventListener('click', async () => {
     const query = queryInput.value.trim();
-    if (!query)
+    if (!query) 
         return;
     statusText.innerText = "Generating PoT Script...";
     scriptOutput.innerText = "";
