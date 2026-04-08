@@ -1,0 +1,288 @@
+CodeACT IDE
+Architecture & Build Pathway
+A senior architect's blueprint for building the first Code-Action IDE
+Balaji · AVK Team · 2025
+Executive Summary
+CodeACT is a next-generation AI-native IDE built around three first-principles departures from Cursor, Zed, and OpenCode:
+Thoughts are code, not prose. The agent never outputs reasoning — it emits Python programs into a sandboxed executor and returns only deterministic results.
+Two tools, infinite capability. The only hardcoded primitives are execute_code and output_to_user. All other tools are written on demand by the agent itself.
+Routing bypasses the LLM. User intent maps directly to a programmatic state machine via embedding similarity — no token generation for dispatch decisions.
+This document gives you the full pathway: architecture, technology choices, phased build plan, team structure, and risk table — scoped to what a small focused team can ship in 12 months.
+1. The Gap: What Current IDEs Get Wrong
+1.1  The Thinking Problem
+Cursor, GitHub Copilot, and every current AI IDE share the same fundamental architecture: the LLM reasons in English, outputs English, and the IDE parses that English to decide what to do next. This creates three compounding problems.
+First, token waste. The model spends compute budget on prose nobody reads — 'Let me analyze this step by step' is pure overhead. Second, hallucination surface. The longer the reasoning chain in natural language, the more opportunities for confident wrong answers to compound. Third, latency. A 400-token chain-of-thought before every action adds 800–1200ms at inference time.
+The Core Observation
+When a developer asks 'What variables are mutated in this function?', the correct answer is 5 characters. Getting there does not require 200 words of reasoning — it requires one AST traversal script and a set() subtraction.
+1.2  The Tool Dictionary Problem
+Cursor maintains ~30 hardcoded tools: search_file, replace_text, list_directory, run_terminal_command, and so on. Every new capability requires a product update. The agent is permanently constrained to what the IDE team anticipated.
+The smol-agents paper (Hugging Face, 2024) demonstrated that agents given a code execution primitive outperform agents with large fixed tool dictionaries on complex tasks. Writing a grep is faster than waiting for a grep tool.
+1.3  The Text-as-Control-Plane Problem
+Even internal routing in current IDEs goes through the LLM. The model has to generate text to trigger its own actions — 'I will now edit the file' before editing the file. Text generation is the slowest possible control plane. A 7B parameter model generating 50 routing tokens costs 80–120ms per decision.
+2. Architecture
+2.1  System Layers
+CodeACT is structured in four layers, each with a single responsibility and a hard interface boundary.
+Layer
+Name
+Responsibility
+Layer 1
+Input & Routing
+Captures keystrokes → embeds query → maps to state enum. Zero LLM calls.
+Layer 2
+Agent Kernel
+Receives state + context → generates executable Python script (the 'thought'). One LLM call.
+Layer 3
+Execution Sandbox
+Runs the generated script in WASM (Pyodide) or local subprocess. Returns structured JSON.
+Layer 4
+Output Renderer
+Receives JSON result → renders diff, answer, or refactored code. No interpretation.
+2.2  The Two-Primitive Model
+The agent kernel has exactly two tools in its system prompt:
+execute_code(script: str) → ExecutionResult
+Runs the provided Python script in the sandbox. Returns stdout, stderr, exit_code, and execution_time_ms. The script can write files, call subprocess, import ast, parse git history — anything the runtime allows.
+output_to_user(content: str, format: 'text' | 'diff' | 'code')
+Emits the final answer to the UI. This is the only way content reaches the screen. The agent cannot output arbitrary text — it must commit to a format.
+Everything else — grep, AST traversal, file diffing, dependency graph construction, test running — is written by the agent on demand. This is not a limitation; it is the capability. The agent can write tools that the IDE team never imagined.
+2.3  The State Router
+When a user types a query, the system does not send it to the LLM and ask 'what should we do?'. Instead:
+The query is embedded using a local embedding model (nomic-embed-text, 137M params, runs fully local).
+The embedding is compared via cosine similarity against a small set of prototype vectors — one per state.
+The closest state is selected. The threshold is tunable; ambiguous queries below threshold go to a lightweight disambiguation step.
+The selected state is injected into the agent kernel prompt as a typed enum value.
+Current state space (v1):
+State
+Triggered by
+Agent action
+TRACE_EXECUTION
+Step through what this code does
+Generate execution trace script
+MUTATE_ANALYSIS
+Find what changes state
+Generate AST mutation walker
+GENERATE_DIFF
+Write or rewrite code
+Generate code + unified diff
+EXPLAIN_CONCEPT
+Explain how something works
+Generate explanation (text output)
+RUN_TESTS
+Execute and report test results
+Generate test runner script
+SEARCH_CODEBASE
+Find references, usages, definitions
+Generate grep/AST search script
+DEBUG_ERROR
+Diagnose a runtime error
+Generate reproduction + diagnosis script
+2.4  The Execution Sandbox
+Two sandbox tiers, selected based on script requirements:
+WASM Tier (default)
+Pyodide running in a Web Worker. Cold start ~200ms, warm execution ~5ms. Used for pure-Python analysis: AST traversal, string search, data processing. No filesystem or subprocess access. Handles 80% of queries.
+Native Tier (escalation)
+Local subprocess via Node child_process. Full filesystem access, subprocess.run allowed, git commands supported. Used for test execution, build commands, dependency analysis. ~20-50ms overhead.
+The agent kernel chooses the tier by declaring it in its generated script header comment. The sandbox runner parses this and routes accordingly. The LLM never touches sandbox selection logic — it is rule-based.
+2.5  Asynchronous Background Execution
+The latency problem is solved by starting work before the user stops typing:
+At 300ms of typing inactivity, the router runs and tentatively selects a state.
+The agent kernel begins generating the execution script.
+At 600ms of inactivity, if the state confidence is above threshold, execution begins in the WASM sandbox.
+When the user hits Enter, the result is either already computed (cache hit) or 200-400ms from completion.
+This converts the perceived latency from LLM generation time + execution time to approximately execution time only for the majority of queries.
+3. Technology Stack
+3.1  Core Stack
+Component
+Technology
+Rationale
+Shell
+Electron + Vite
+VS Code-class desktop app. Proven, mature, good extension ecosystem.
+Editor
+CodeMirror 6
+Modular, fast, better than Monaco for custom language features. LSP client built-in.
+Agent Kernel LLM
+Anthropic claude-sonnet-4 (API)
+Best code generation. Constrained to emit only valid Python scripts via structured output.
+Embedding Model
+nomic-embed-text (local)
+137M params, runs via llama.cpp or Ollama. No API call for routing.
+WASM Sandbox
+Pyodide 0.25
+CPython in WebAssembly. Runs in a dedicated Web Worker.
+Native Sandbox
+Node child_process
+Spawns restricted Python subprocess. Timeout enforced at 5s.
+LSP
+pylsp / typescript-language-server
+Standard language server protocol. Completions, diagnostics, go-to-def.
+Vector Store
+LanceDB (local)
+For codebase indexing. Embedded, no server required.
+IPC
+Electron ipcMain/ipcRenderer
+Renderer → main process communication for file system and subprocess access.
+3.2  What We Deliberately Exclude (v1)
+Decisions about what not to build are as important as what to build:
+No plugin marketplace. The dynamic tool generation model makes plugins unnecessary for v1. A plugin is just a script the agent can write.
+No cloud sync. All state is local. Trust and privacy are a competitive advantage over cloud-first IDEs.
+No multi-model routing. One model, tuned for code. Model-selection complexity solves a problem users don't have.
+No GUI settings panel. Config is a single JSON file. Developers prefer this.
+4. Build Pathway
+Twelve months. Four phases. Each phase ships a usable artifact — no phase ends with infrastructure that isn't running.
+Phase
+Name
+Deliverables
+Duration
+Phase 1
+Kernel Proof
+Working PoT loop: user types → script generated → WASM executes → result shown. Single-file context only.
+Months 1–2
+Phase 2
+State Router
+Embedding router live. 7 states implemented. Async background execution. Native sandbox tier added.
+Months 3–4
+Phase 3
+Full IDE Shell
+Electron shell, CodeMirror editor, LSP integration, LanceDB codebase index, multi-file context.
+Months 5–7
+Phase 4
+Polish & Differentiation
+Diff rendering, test integration, git-aware context, performance tuning, alpha user onboarding.
+Months 8–10
+Phase 5
+Beta
+Bug fixes from alpha feedback, documentation, installer, telemetry (opt-in), public beta launch.
+Months 11–12
+4.1  Phase 1 — The Kernel (Months 1–2)
+Goal: prove the PoT loop works end-to-end. Everything else is fake until this is real.
+Build the agent kernel: system prompt that constrains the model to emit only Python scripts. No prose. The prompt must be tested against 50+ representative queries before Phase 1 closes.
+Build the Pyodide WASM sandbox runner. Test it with AST traversal, string matching, basic data processing scripts. Measure cold/warm latency.
+Build a minimal Electron window with a textarea input and a result pane. No editor, no LSP — just the loop.
+Instrument everything: log every script generated, every execution result, every latency number. This data drives Phase 2.
+Phase 1 Exit Criteria
+Given a code snippet pasted into the input and a natural language query, the system generates a valid Python script, executes it in WASM, and returns a correct deterministic answer in under 800ms for 90% of test cases.
+4.2  Phase 2 — The State Router (Months 3–4)
+Goal: replace free-text dispatch with embedding-based state routing.
+Set up Ollama locally with nomic-embed-text. Build the embedding + cosine similarity router as a standalone module.
+Collect 200 labelled query examples (can be synthetic). Define the 7 initial state prototypes. Tune similarity thresholds.
+Implement async background execution: debounce at 300ms, optimistic execution at 600ms.
+Add the Native sandbox tier with timeout enforcement. Test with git log, grep, and pytest invocations.
+Measure routing accuracy against held-out test set. Target: 92%+ correct state selection.
+4.3  Phase 3 — The IDE Shell (Months 5–7)
+Goal: this becomes an actual IDE, not a prototype.
+Integrate CodeMirror 6 with syntax highlighting for Python, TypeScript, Rust, Go, Java.
+Wire up pylsp and typescript-language-server. Basic completions, diagnostics, go-to-definition.
+Build the codebase indexer: walk the project tree, embed each file chunk, store in LanceDB. Expose as context to the agent kernel.
+Build multi-file context window management: the kernel receives relevant file chunks ranked by embedding similarity to the current query, not the full codebase.
+Implement the diff renderer: output_to_user with format='diff' renders a side-by-side or inline diff with accept/reject controls.
+4.4  Phase 4 — Differentiation (Months 8–10)
+Goal: build the features that make CodeACT visibly different from Cursor in a demo.
+Mutation analysis mode: given a function, the agent generates an AST walker that returns exactly which variables are mutated, in what order, under what conditions. Deterministic, not a guess.
+Execution trace mode: the agent generates a script that instruments the code with trace hooks and returns a structured call graph.
+Test generation mode: the agent generates a pytest/jest script, runs it, and shows pass/fail with the actual test code.
+Git-aware context: the agent has access to git blame, git log, and diff history. It can answer 'who changed this and why' using real data.
+4.5  Phase 5 — Beta (Months 11–12)
+Alpha feedback integration. Expect the router accuracy and sandbox escape to be the top issues.
+Installer pipeline: pkg for macOS, NSIS for Windows, AppImage for Linux.
+Opt-in telemetry: script generation latency, execution success rate, state routing accuracy.
+Public beta announcement. Target: developer Twitter/X, Hacker News Show HN.
+5. Team Structure
+Role
+Responsibilities
+Headcount
+Agent Kernel Engineer
+Prompt engineering, structured output constraints, script generation quality. Owns Phase 1.
+1 person
+Infra / Sandbox Engineer
+Pyodide integration, native subprocess, security boundaries, async execution pipeline.
+1 person
+IDE Shell Engineer
+Electron, CodeMirror, LSP integration, diff renderer, file system. Owns Phase 3.
+1 person
+ML / Routing Engineer
+Embedding model, state router, LanceDB indexer, context ranking. Owns Phase 2.
+1 person
+Product / QA
+Query test set curation, user research, alpha coordination, bug triage.
+0.5 person
+Minimum viable team: 3 engineers who can cover Agent Kernel, Infra/Sandbox, and IDE Shell. The ML/Routing role can be covered by the Infra engineer in Phase 1–2 at reduced velocity.
+6. Risk Register
+Risk
+Severity
+Description
+Mitigation
+Script generation quality
+High
+Agent emits invalid Python or incorrect logic
+Invest heavily in Phase 1 prompt testing. Build a script validator that runs before execution.
+WASM sandbox security
+High
+Malicious or buggy generated script causes damage
+Strict Pyodide allowlist — no filesystem, no network in WASM tier. Native tier is opt-in per project.
+Router accuracy at boundaries
+Medium
+Ambiguous queries routed to wrong state
+Build a confidence threshold + disambiguation UX. Show the routed state to the user — make it inspectable.
+Pyodide cold start latency
+Medium
+First query feels slow
+Pre-warm Pyodide on app launch. Show a non-blocking progress indicator on first load.
+Context window overflow
+Medium
+Large codebases exceed model context limit
+Embedding-ranked chunk retrieval is mandatory from Phase 3. Never send full files.
+LLM API cost
+Low
+API costs at scale make the product uneconomical
+Cache script generation results by (state, context_hash). Most queries in a session are repeated patterns.
+LSP conflicts with custom analysis
+Low
+LSP diagnostics contradict agent analysis results
+Clearly separate UI zones. LSP = gutter. Agent = panel. Never merge them.
+7. CodeACT vs. Cursor vs. OpenCode
+Dimension
+CodeACT
+Cursor
+OpenCode
+Reasoning model
+PoT — code only
+CoT — prose reasoning
+CoT — prose reasoning
+Tool count
+2 primitives
+~30 hardcoded
+~15 hardcoded
+Routing
+Embedding state machine
+LLM text generation
+LLM text generation
+Answer correctness
+Deterministic (AST/execution)
+Probabilistic
+Probabilistic
+Sandbox
+WASM + native
+Docker/subprocess
+Local subprocess
+Background execution
+Yes — starts while typing
+No
+No
+Codebase index
+LanceDB local embeddings
+Cloud-based RAG
+Local embeddings
+Privacy
+Fully local option
+Cloud required
+Partially local
+8. First Steps (This Week)
+Before writing any IDE code, validate the kernel. The entire architecture depends on the agent reliably emitting valid, correct Python scripts. Start here:
+Write 50 test queries spanning all 7 states. Include edge cases: ambiguous queries, very short queries, queries with no code context.
+Write the system prompt that constrains the model to PoT output. Iterate until 45/50 queries produce valid, executable scripts.
+Set up Pyodide in a bare HTML page. Run the 45 valid scripts against it. Measure latency and correctness.
+If 40+ scripts execute correctly and return correct results, the architecture is validated. Proceed to Phase 1 build.
+If not — the prompt engineering work is the critical path, not the IDE shell. Fix this before building anything else.
+The one thing that kills this project
+Building the Electron shell before validating the kernel. It is tempting to start with what is visible. Do not. The kernel is the product. Everything else is packaging.
+CodeACT Architecture v1.0  |  Balaji · AVK Team  |  Confidential
