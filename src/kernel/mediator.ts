@@ -10,7 +10,7 @@ export class MediatorAgent {
         this.genAI = new GoogleGenerativeAI(key);
     }
 
-    public async parseQuery(query: string): Promise<string> {
+    public async parseQuery(query: string, onToken?: (text: string) => void): Promise<string> {
         // We use gemini-1.5-flash for the fastest possible token extraction
         const model = this.genAI.getGenerativeModel({ 
             model: 'gemini-2.5-flash-lite',
@@ -19,7 +19,7 @@ export class MediatorAgent {
 
         const userMessage = `Write the parsing script for this exact query: "${query}"`;
 
-        const result = await model.generateContent({
+        const result = await model.generateContentStream({
              contents: [{ role: 'user', parts: [{ text: userMessage }] }],
              generationConfig: {
                  temperature: 0.1,
@@ -27,7 +27,12 @@ export class MediatorAgent {
              }
         });
         
-        const textContent = result.response.text();
+        let textContent = "";
+        for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            textContent += chunkText;
+            if (onToken) onToken(chunkText);
+        }
 
         const match = textContent.match(/```(?:python)?\n([\s\S]*?)```/);
         if (!match) {

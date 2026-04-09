@@ -11,10 +11,11 @@ AVAILABLE INJECTED PRIMITIVES (already in scope):
 - output_to_user(content: str, format_: str) # Emits the final result to the user. format_ must be 'text', 'diff', or 'code'.
 
 SCRIPT REQUIREMENTS:
-1. First line must be a comment selecting tier: "# TIER: WASM" or "# TIER: NATIVE".
+1. First line must be a comment selecting tier: "# TIER: WASM" (for fast, isolated math/logic) or "# TIER: NATIVE" (if the script must import os/sys to read local computer files or directories).
 2. You must implement your own logic (AST parsing, regex, file diffs) inside the script.
-3. The script MUST terminate by calling \`output_to_user(..., ...)\`.
-4. Your logic should precisely match the user's intent mapped to the following state: ${state}
+3. IF THE USER ASKS TO "ANALYZE" THE CODEBASE: Your Python script MUST use \`os.walk\` AND physically \`open().read()\` the relevant source code files (.ts, .js, .py, etc.) to scan their actual contents. Do NOT just print the directory tree names. You must do the analysis inside the python execution!
+4. The script MUST terminate by calling \`output_to_user(..., ...)\`.
+5. Your logic should precisely match the user's intent mapped to the following state: ${state}
 
 Example output format:
 \`\`\`python

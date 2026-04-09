@@ -5,7 +5,10 @@
   "main": "dist/main.js",
   "type": "module",
   "scripts": {
-    "start": "tsc && electron .",
+    "build-main": "tsc",
+    "build-renderer": "vite build",
+    "build": "npm run build-main && npm run build-renderer",
+    "start": "npm run build && electron .",
     "test": "vitest run"
   },
   "repository": {
@@ -30,6 +33,11 @@
     "vitest": "^4.1.3"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1"
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "@google/generative-ai": "^0.24.1",
+    "@lezer/common": "^1.5.2",
+    "codemirror": "^6.0.2"
   }
 }

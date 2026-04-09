@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeACT IDE</title>
+    <!-- Use a premium font like Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+    <div class="menu-bar">
+        <div class="menu-item">File</div>
+        <div class="menu-item">Edit</div>
+        <div class="menu-item">Selection</div>
+        <div class="menu-item">View</div>
+        <div class="menu-item">Go</div>
+        <div class="menu-item">Run</div>
+        <div class="menu-item">Terminal</div>
+        <div class="menu-item">Help</div>
+    </div>
+
+    <div class="app-container">
+        <!-- New Activity Bar -->
+        <div class="activity-bar">
+            <svg class="activity-icon active" viewBox="0 0 16 16" fill="currentColor"><path d="M15 15H1V1h14v14zm-13-1h12V2H2v12z"/><path d="M13 13H3V3h10v10zM4 4h8v8H4V4z"/></svg>
+            <svg class="activity-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1a2 2 0 0 0-2 2v1h-1V3a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3a2 2 0 0 0 2-2v-1h1v1a2 2 0 0 0 2 2h3a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zM6 13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v10zm3-3V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4h-1v4z"/></svg>
+            <svg class="activity-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M15.504 1.361a.5.5 0 00-.57-.07l-4.854 2.573A2 2 0 008.205 3H3a2 2 0 00-2 2v6a2 2 0 002 2h5.205a2 2 0 001.875-.864l4.854 2.573a.5.5 0 00.731-.444V1.805a.5.5 0 00-.165-.444zM2 5a1 1 0 011-1h5.205a1 1 0 01.938.432L14 7.025v1.95l-4.857 2.593A1 1 0 018.205 12H3a1 1 0 01-1-1V5z"/></svg>
+        </div>
+
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span>EXPLORER</span>
+                <div style="display:flex; gap:10px;">
+                    <svg id="openFolderBtn" style="cursor:pointer" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4H8.414l-1.707-1.707A1 1 0 0 0 6 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/></svg>
+                    <span style="cursor:pointer">...</span>
+                </div>
+            </div>
+            
+            <div id="fileTree" class="file-tree">
+                <!-- File items added via JS -->
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="editor-tabs">
+                <div class="tab active" id="currentTab">welcome.ts</div>
+            </div>
+            <div id="editorContainer" class="editor-container">
+                <!-- CodeMirror Editor -->
+            </div>
+        </main>
+
+        <aside class="ai-pane">
+            <div class="ai-header">Agent Execution Loop</div>
+            <div class="ai-scroll">
+                <div id="scriptOutput" class="trace-box">Ready to execute PoT...</div>
+                <div class="sandbox-box">
+                    <div style="font-size:10px; color:var(--text-muted); margin-bottom:5px;">SANDBOX OUTPUT</div>
+                    <div id="resultOutput">...</div>
+                </div>
+            </div>
+            
+            <div class="input-container">
+                <textarea id="queryInput" placeholder="Ask anything..."></textarea>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span id="status" style="font-size:11px; color:var(--text-muted);">Ready</span>
+                    <button id="runBtn" class="btn-primary">Execute</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div class="status-bar">
+        <div>Ready</div>
+        <div>UTF-8 | TypeScript</div>
+    </div>
+    
+    <script type="module" src="src/renderer.ts"></script>
+</body>
+</html>
