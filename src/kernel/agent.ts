@@ -15,9 +15,14 @@ export class AgentKernel {
         state: CodeActState,
         query: string,
         context?: string,
+        actionLibrary?: string,
         onToken?: (text: string) => void
     ): Promise<string> {
-        const systemPrompt = buildSystemPrompt(state);
+        let systemPrompt = buildSystemPrompt(state);
+        if (actionLibrary) {
+            systemPrompt += `\n\nVERIFIED ACTION LIBRARY (Reuse if applicable):\n${actionLibrary}`;
+        }
+        
         const userMessage = context 
             ? `CONTEXT:\n${context}\n\nUSER QUERY:\n${query}`
             : `USER QUERY:\n${query}`;

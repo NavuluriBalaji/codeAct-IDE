@@ -8,8 +8,11 @@ export class AgentKernel {
             throw new Error("GEMINI_API_KEY not set");
         this.genAI = new GoogleGenerativeAI(key);
     }
-    async generateThoughtScript(state, query, context, onToken) {
-        const systemPrompt = buildSystemPrompt(state);
+    async generateThoughtScript(state, query, context, actionLibrary, onToken) {
+        let systemPrompt = buildSystemPrompt(state);
+        if (actionLibrary) {
+            systemPrompt += `\n\nVERIFIED ACTION LIBRARY (Reuse if applicable):\n${actionLibrary}`;
+        }
         const userMessage = context
             ? `CONTEXT:\n${context}\n\nUSER QUERY:\n${query}`
             : `USER QUERY:\n${query}`;

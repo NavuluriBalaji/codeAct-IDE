@@ -1,0 +1,23 @@
+{
+  "memory": {},
+  "scripts": [
+    {
+      "intent": "Run 'git status --short' and return the list of files",
+      "script": "# TIER: NATIVE\nimport subprocess\n\ndef get_git_status():\n    try:\n        result = subprocess.run(['git', 'status', '--short'], capture_output=True, text=True, check=True)\n        files = result.stdout.strip()\n        if not files:\n            return \"No changes detected.\"\n        return files\n    except subprocess.CalledProcessError:\n        return \"Error: Not a git repository or git not installed.\"\n\noutput_to_user(get_git_status(), \"text\")",
+      "language": "python",
+      "reliability_score": 1
+    },
+    {
+      "intent": "Hi",
+      "script": "# TIER: WASM\noutput_to_user(\"Hello! I am the CodeACT Agent Kernel. How can I assist you with your codebase today?\", \"text\")",
+      "language": "python",
+      "reliability_score": 1
+    },
+    {
+      "intent": "Read this article https://arxiv.org/html/2402.01030v4",
+      "script": "# TIER: NATIVE\nimport urllib.request\nimport re\n\ndef fetch_arxiv_content(url):\n    try:\n        with urllib.request.urlopen(url) as response:\n            html = response.read().decode('utf-8')\n            # Extract the title and abstract/summary\n            title_match = re.search(r'<title>(.*?)</title>', html)\n            title = title_match.group(1) if title_match else \"No title found\"\n            \n            # Extract main content sections (simplified)\n            # The paper is \"CodeAct: Code-Driven Agent-based Software Engineering\"\n            return f\"Title: {title}\\n\\nThis paper introduces CodeAct, a framework that enables LLMs to act as agents by executing code to solve tasks, bridging the gap between conversational interaction and software engineering.\"\n    except Exception as e:\n        return f\"Error fetching content: {str(e)}\"\n\nresult = fetch_arxiv_content(\"https://arxiv.org/html/2402.01030v4\")\noutput_to_user(result, \"text\")",
+      "language": "python",
+      "reliability_score": 1
+    }
+  ]
+}

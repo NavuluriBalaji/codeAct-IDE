@@ -74,9 +74,9 @@ body.codeic-theme {
 
 .dropdown-menu {
     position: absolute;
-    top: 50px;
+    top: 100%; /* Bridge the gap perfectly */
     left: 0;
-    min-width: 280px;
+    width: 220px;
     background: #181818;
     border: 1px solid #333;
     border-radius: 8px;
@@ -84,6 +84,10 @@ body.codeic-theme {
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     display: none;
     z-index: 1000;
+}
+
+.menu-dropdown-container:hover {
+    color: #fff;
 }
 
 .menu-dropdown-container:hover .dropdown-menu {

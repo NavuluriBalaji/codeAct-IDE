@@ -22,6 +22,12 @@ import os
 def output_to_user(content, format_="text"):
     print(content) # Direct relay to stdout for kernel capture
 
+def llm_tokenize(data, name="OBSERVATION"):
+    if isinstance(data, list):
+        items = [f"<{name}_ITEM>{i}</{name}_ITEM>" for i in data]
+        return f"[{name}_BLOCK]\\n" + "\\n".join(items) + f"\\n[/{name}_BLOCK]"
+    return f"[{name}_TOKEN]{str(data)}[/{name}_TOKEN]"
+
 def execute_code(script):
     # Placeholder for recursive execution 
     return {"exit_code": 0, "stdout": "recursive execution not supported yet in prompt-bound native", "stderr": ""}
