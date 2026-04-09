@@ -50,4 +50,4 @@ The IDE operates on a dual-stage execution pipeline:
 This project is inspired by the research paper: [Program of Thoughts Prompting: Disentangling Computation from Reasoning](https://arxiv.org/abs/2211.12588), which concludes that decoupling the reasoning from the computation (by delegating to an external tool/code execution) significantly improves LLM performance on complex tasks.
 
 ---
-Built with ⚡ by [Balaji](mailto:balajinbtt@gmail.com)
+Built by [Balaji](mailto:balajinbtt@gmail.com)
