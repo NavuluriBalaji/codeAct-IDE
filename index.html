@@ -3,79 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodeACT IDE</title>
-    <!-- Use a premium font like Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <title>Codeic IDE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="src/styles.css">
 </head>
-<body>
-    <div class="menu-bar">
-        <div class="menu-item">File</div>
-        <div class="menu-item">Edit</div>
-        <div class="menu-item">Selection</div>
-        <div class="menu-item">View</div>
-        <div class="menu-item">Go</div>
-        <div class="menu-item">Run</div>
-        <div class="menu-item">Terminal</div>
-        <div class="menu-item">Help</div>
-    </div>
+<body class="codeic-theme">
+    <!-- Top Header Bar (Codeic Style) -->
+    <header class="codeic-header">
+        <div class="header-left">
+            <div class="window-controls">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+                <span class="dot green"></span>
+            </div>
+            <div class="menu-items">
+                <div class="menu-dropdown-container">
+                    <span>File</span>
+                    <div class="dropdown-menu">
+                        <div class="menu-row"><span>New Text File</span><span class="shortcut">Ctrl+N</span></div>
+                        <div class="menu-row"><span>New File...</span><span class="shortcut">Ctrl+Alt+Win+N</span></div>
+                        <div class="menu-row"><span>New Window</span><span class="shortcut">Ctrl+Shift+N</span></div>
+                        <hr>
+                        <div id="openFileMenu" class="menu-row"><span>Open File...</span><span class="shortcut">Ctrl+O</span></div>
+                        <div id="openFolderMenu" class="menu-row"><span>Open Folder...</span><span class="shortcut">Ctrl+K Ctrl+O</span></div>
+                        <hr>
+                        <div class="menu-row"><span>Save</span><span class="shortcut">Ctrl+S</span></div>
+                        <div class="menu-row"><span>Save As...</span><span class="shortcut">Ctrl+Shift+S</span></div>
+                        <div class="menu-row"><span>Save All</span><span class="shortcut">Ctrl+K S</span></div>
+                        <hr>
+                        <div class="menu-row"><span>Auto Save</span><span class="check">✓</span></div>
+                        <div class="menu-row"><span>Preferences</span><span class="more">></span></div>
+                        <hr>
+                        <div class="menu-row"><span>Close Editor</span><span class="shortcut">Ctrl+F4</span></div>
+                        <div class="menu-row"><span>Close Window</span><span class="shortcut">Alt+F4</span></div>
+                        <hr>
+                        <div class="menu-row"><span>Exit</span></div>
+                    </div>
+                </div>
+                <span>Edit</span>
+                <span>Selection</span>
+                <span>View</span>
+                <span>Go</span>
+                <span>Run</span>
+                <span>Terminal</span>
+                <span>Help</span>
+             </div>
+        </div>
+        <div class="header-center">
+            <div class="search-bar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <span>Search files or commands</span>
+            </div>
+        </div>
+        <div class="header-right">
+             <svg id="globalAiToggle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer; color:var(--clr-accent); margin-right:20px;"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M21 17v4"/><path d="M19 19h4"/></svg>
+        </div>
+    </header>
 
     <div class="app-container">
-        <!-- New Activity Bar -->
-        <div class="activity-bar">
-            <svg class="activity-icon active" viewBox="0 0 16 16" fill="currentColor"><path d="M15 15H1V1h14v14zm-13-1h12V2H2v12z"/><path d="M13 13H3V3h10v10zM4 4h8v8H4V4z"/></svg>
-            <svg class="activity-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1a2 2 0 0 0-2 2v1h-1V3a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3a2 2 0 0 0 2-2v-1h1v1a2 2 0 0 0 2 2h3a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zM6 13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v10zm3-3V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4h-1v4z"/></svg>
-            <svg class="activity-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M15.504 1.361a.5.5 0 00-.57-.07l-4.854 2.573A2 2 0 008.205 3H3a2 2 0 00-2 2v6a2 2 0 002 2h5.205a2 2 0 001.875-.864l4.854 2.573a.5.5 0 00.731-.444V1.805a.5.5 0 00-.165-.444zM2 5a1 1 0 011-1h5.205a1 1 0 01.938.432L14 7.025v1.95l-4.857 2.593A1 1 0 018.205 12H3a1 1 0 01-1-1V5z"/></svg>
-        </div>
+        <aside class="codeic-sidebar">
+            <div class="sidebar-tabs">
+                <div class="sidebar-tab active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+                <div class="sidebar-tab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+                <div class="sidebar-tab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
+                <div class="sidebar-tab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg></div>
+            </div>
 
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <span>EXPLORER</span>
-                <div style="display:flex; gap:10px;">
-                    <svg id="openFolderBtn" style="cursor:pointer" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4H8.414l-1.707-1.707A1 1 0 0 0 6 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/></svg>
-                    <span style="cursor:pointer">...</span>
+            <div class="explorer-section">
+                <div class="explorer-header">
+                    <span>EXPLORER</span>
+                    <div style="display:flex; gap:10px;">
+                        <svg id="newFileBtn" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                        <svg id="newFolderBtn" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2Z"/><line x1="12" y1="17" x2="12" y2="11"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                        <svg id="openFolderBtn" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2Z"/></svg>
+                    </div>
+                </div>
+                <div id="fileTree" class="file-tree">
+                    <!-- Dynamic Files -->
                 </div>
             </div>
-            
-            <div id="fileTree" class="file-tree">
-                <!-- File items added via JS -->
+
+            <div id="sourceControlSection" class="explorer-section" style="display:none">
+                <div class="explorer-header">
+                    <span>SOURCE CONTROL</span>
+                </div>
+                <div id="gitChanges" class="file-tree">
+                    <!-- Git changes will go here -->
+                </div>
+                <div class="commit-box" style="padding:10px; border-top:1px solid var(--border); margin-top:20px;">
+                    <textarea id="commitMsg" placeholder="Message (Press Ctrl+Enter to commit)" style="width:100%; background:#111; border:1px solid #222; border-radius:8px; padding:10px; color:#fff; font-size:12px; resize:none;"></textarea>
+                    <button id="commitBtn" style="width:100%; background:var(--clr-accent); color:#000; border:none; padding:8px; border-radius:8px; margin-top:10px; font-weight:600; cursor:pointer;">Commit</button>
+                </div>
             </div>
         </aside>
 
-        <main class="main-content">
-            <div class="editor-tabs">
-                <div class="tab active" id="currentTab">welcome.ts</div>
+        <div class="s-resizer" id="sidebarResizer"></div>
+
+        <main class="codeic-main">
+            <div class="editor-header">
+                <div id="scrollLeft" class="tab-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></div>
+                <div class="tab-scroller">
+                    <div class="codeic-tab active" id="currentTab">app.swift</div>
+                </div>
+                <div id="scrollRight" class="tab-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
             </div>
-            <div id="editorContainer" class="editor-container">
-                <!-- CodeMirror Editor -->
+            
+            <div class="editor-viewport">
+                <div id="editorContainer" class="editor-instance"></div>
+                <div class="t-resizer" id="terminalResizer"></div>
+
+                <div id="terminalPane" class="codeic-terminal">
+                    <div class="terminal-bar">
+                        <div class="terminal-tabs">
+                            <span>PROBLEMS</span>
+                            <span>OUTPUT</span>
+                            <span>DEBUG CONSOLE</span>
+                            <span class="terminal-tab-active">TERMINAL</span>
+                        </div>
+                        <div class="terminal-actions">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer; opacity:0.6"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer; opacity:0.6"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            <span id="closeTerminal" style="cursor:pointer; font-size:18px; line-height:1; display:flex; align-items:center;">×</span>
+                        </div>
+                    </div>
+                    <div id="terminalContainer"></div>
+                </div>
             </div>
         </main>
 
-        <aside class="ai-pane">
-            <div class="ai-header">Agent Execution Loop</div>
-            <div class="ai-scroll">
-                <div id="scriptOutput" class="trace-box">Ready to execute PoT...</div>
-                <div class="sandbox-box">
-                    <div style="font-size:10px; color:var(--text-muted); margin-bottom:5px;">SANDBOX OUTPUT</div>
-                    <div id="resultOutput">...</div>
-                </div>
+        <div class="a-resizer" id="aiResizer"></div>
+
+        <aside class="codeic-ai">
+            <div class="ai-header">
+                <span>CODEACT INTELLIGENCE</span>
+                <svg id="toggleAiBtn" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer; opacity:0.6"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></svg>
             </div>
-            
-            <div class="input-container">
-                <textarea id="queryInput" placeholder="Ask anything..."></textarea>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span id="status" style="font-size:11px; color:var(--text-muted);">Ready</span>
-                    <button id="runBtn" class="btn-primary">Execute</button>
+            <div class="ai-history" id="aiScroll">
+                 <!-- Chat messages will be dynamically injected here -->
+            </div>
+            <div class="ai-input-box">
+                <div id="mentionsDropdown" class="mentions-dropdown"></div>
+                <textarea id="queryInput" placeholder="Start thinking in code... (Type @ to mention files)"></textarea>
+                <div class="input-actions">
+                    <span id="status">Active</span>
+                    <button id="runBtn">Execute Phase</button>
                 </div>
             </div>
         </aside>
     </div>
 
-    <div class="status-bar">
-        <div>Ready</div>
-        <div>UTF-8 | TypeScript</div>
-    </div>
-    
+    <footer class="codeic-footer">
+        <div class="footer-left">Master | UTF-8 | Swift</div>
+        <div class="footer-right">Latency: 12ms</div>
+    </footer>
+
     <script type="module" src="src/renderer.ts"></script>
 </body>
 </html>

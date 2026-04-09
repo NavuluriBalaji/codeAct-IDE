@@ -22,7 +22,6 @@ export class AgentKernel {
             ? `CONTEXT:\n${context}\n\nUSER QUERY:\n${query}`
             : `USER QUERY:\n${query}`;
 
-        // Falling back to gemini-2.5-flash as 3.1-pro-preview has billing limits on this tied project
         const model = this.genAI.getGenerativeModel({ 
             model: 'gemini-flash-lite-latest',
             systemInstruction: systemPrompt
@@ -34,7 +33,7 @@ export class AgentKernel {
                  temperature: 0.1,
                  maxOutputTokens: 4000
              }
-        });
+         });
         
         let fullText = "";
         for await (const chunk of result.stream) {
@@ -43,12 +42,32 @@ export class AgentKernel {
             if (onToken) onToken(chunkText);
         }
 
-        // Extract exactly what is inside the ```python ... ``` block
         const match = fullText.match(/```(?:python)?\n([\s\S]*?)```/);
         if (!match) {
             throw new Error(`Failed to generate a valid Python block. Raw output:\n${fullText}`);
         }
 
         return match[1].trim();
+    }
+
+    public async synthesizeResponse(
+        query: string,
+        observation: string
+    ): Promise<string> {
+        const model = this.genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
+        const prompt = `
+            USER QUERY: ${query}
+            OBSERVATION FROM SYSTEM:
+            ${observation}
+
+            INSTRUCTION: Your CodeACT PoT logic has finished executing. 
+            The OBSERVATION above is the raw output from the Python script.
+            Synthesize this into a concise, professional answer for the user. 
+            Explain what you found and answer their question directly.
+            Do NOT mention the Python script or technical execution details.
+        `;
+
+        const result = await model.generateContent(prompt);
+        return result.response.text().trim();
     }
 }

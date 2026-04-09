@@ -15,7 +15,23 @@ export async function runInNative(script: string, cwd: string): Promise<Executio
     const tempFile = join(tmpdir(), `codeact_native_${randomUUID()}.py`);
     
     try {
-        await writeFile(tempFile, script, 'utf8');
+        const preamble = `
+import sys
+import os
+
+def output_to_user(content, format_="text"):
+    print(content) # Direct relay to stdout for kernel capture
+
+def execute_code(script):
+    # Placeholder for recursive execution 
+    return {"exit_code": 0, "stdout": "recursive execution not supported yet in prompt-bound native", "stderr": ""}
+
+# ====================
+# AGENT SCRIPT START
+# ====================
+`;
+        const wrappedScript = preamble + script;
+        await writeFile(tempFile, wrappedScript, 'utf8');
         
         const command = process.platform === 'win32' ? `python "${tempFile}"` : `python3 "${tempFile}"`;
         

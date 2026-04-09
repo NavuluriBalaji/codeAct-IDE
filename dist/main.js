@@ -6,7 +6,9 @@ import { MediatorAgent } from './kernel/mediator.js';
 import { runInWasm, initPyodide } from './sandbox/pyodide.js';
 import { runInNative } from './sandbox/native.js';
 import { CodeActState } from './types.js';
-import { readdir, stat, readFile } from 'fs/promises';
+import { readdir, stat, readFile, writeFile } from 'fs/promises';
+import os from 'os';
+import * as pty from 'node-pty';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const kernel = new AgentKernel();
@@ -85,10 +87,40 @@ ipcMain.handle('read-dir', async (event, dirPath) => {
         return { success: false, error: e.message };
     }
 });
-ipcMain.handle('read-file', async (event, filePath) => {
+ipcMain.handle('read-file', (event, path) => {
+    return readFile(path, 'utf8')
+        .then(content => ({ success: true, content }))
+        .catch(err => ({ success: false, error: err.message }));
+});
+ipcMain.handle('write-file', (event, { path, content }) => {
+    return writeFile(path, content, 'utf8')
+        .then(() => ({ success: true }))
+        .catch(err => ({ success: false, error: err.message }));
+});
+ipcMain.handle('create-file', async (event, path) => {
     try {
-        const content = await readFile(filePath, 'utf8');
-        return { success: true, content };
+        await writeFile(path, '', 'utf8');
+        return { success: true };
+    }
+    catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+ipcMain.handle('create-folder', async (event, path) => {
+    try {
+        const { mkdir } = await import('fs/promises');
+        await mkdir(path, { recursive: true });
+        return { success: true };
+    }
+    catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+ipcMain.handle('delete-item', async (event, path) => {
+    try {
+        const { rm } = await import('fs/promises');
+        await rm(path, { recursive: true, force: true });
+        return { success: true };
     }
     catch (e) {
         return { success: false, error: e.message };
@@ -139,9 +171,42 @@ ipcMain.handle('execute-loop', async (event, query) => {
             event.sender.send('llm-token', "\n\n[+] Executing Kernel Script in WASM Sandbox...\n");
             result = await runInWasm(script);
         }
-        return { script, result, execution_time_ms: result.execution_time_ms };
+        // =======================
+        // PHASE 3: Synthesis Stage
+        // =======================
+        event.sender.send('llm-token', "\n\n=== SYNTHESIS PHASE ===\n[+] Summarizing findings...\n\n");
+        const finalAnswer = await kernel.synthesizeResponse(query, result.stdout || result.stderr);
+        return {
+            script,
+            result,
+            finalAnswer,
+            execution_time_ms: result.execution_time_ms
+        };
     }
     catch (err) {
         return { error: err.message || JSON.stringify(err) };
     }
+});
+// Terminal PTY Logic
+const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+let ptyProcess = null;
+ipcMain.on('terminal-input', (event, data) => {
+    if (ptyProcess)
+        ptyProcess.write(data);
+});
+ipcMain.handle('spawn-terminal', (event) => {
+    if (ptyProcess)
+        return;
+    ptyProcess = pty.spawn(shell, [], {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 24,
+        cwd: currentWorkspace,
+        env: process.env
+    });
+    ptyProcess.onData((data) => {
+        if (mainWindow)
+            mainWindow.webContents.send('terminal-output', data);
+    });
+    return { success: true };
 });
