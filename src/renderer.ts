@@ -5,8 +5,12 @@ import { python } from "@codemirror/lang-python";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import UIHandlers from './ui-handlers.js';
 // @ts-ignore
 import '@xterm/xterm/css/xterm.css';
+
+// Initialize UI Handlers for Cursor-like features
+const uiHandlers = new UIHandlers();
 
 const qs = (id: string) => document.getElementById(id) as HTMLElement;
 const runBtn = qs('runBtn') as HTMLButtonElement;
@@ -214,6 +218,40 @@ async function saveFile() {
     const r = await window.codeactAPI.writeFile(activeFilePath, c); if (r.success) { statusText.innerText = "File Saved"; setTimeout(() => { statusText.innerText = "Ready"; }, 2000); }
 }
 window.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveFile(); } });
+
+// Menu action handlers
+document.querySelectorAll('[data-action]').forEach(item => {
+    item.addEventListener('click', (e) => {
+        const action = (item as HTMLElement).getAttribute('data-action');
+        handleMenuAction(action || '');
+    });
+});
+
+function handleMenuAction(action: string) {
+    const handlers: { [key: string]: () => void } = {
+        'newFile': () => { addTab('untitled.txt', 'untitled.txt'); },
+        'newFolder': () => alert('New folder functionality'),
+        'openFile': () => alert('Open file functionality'),
+        'saveFile': () => saveFile(),
+        'saveAllFiles': () => { openFiles.forEach(f => saveFile()); },
+        'saveAs': () => alert('Save as functionality'),
+        'closeFile': () => closeTab(activeFilePath || ''),
+        'closeAll': () => { openFiles = []; activeFilePath = null; if (editor) editor.destroy(); updateTabUI(); },
+        'toggleSidebar': () => { const sidebar = document.querySelector('.codeic-sidebar') as HTMLElement; sidebar.style.display = sidebar.style.display === 'none' ? 'flex' : 'none'; },
+    };
+
+    handlers[action]?.();
+}
+
+function switchTerminalTab(tab: string) {
+    document.querySelectorAll('.terminal-tab-item').forEach(t => t.classList.remove('terminal-tab-active'));
+    const activeTab = document.querySelector(`.terminal-tab-item[data-tab="${tab}"]`) as HTMLElement;
+    if (activeTab) activeTab.classList.add('terminal-tab-active');
+
+    document.querySelectorAll('.terminal-content').forEach(content => content.classList.add('hidden'));
+    const activeContent = document.getElementById(tab + 'Pane') as HTMLElement;
+    if (activeContent) activeContent.classList.remove('hidden');
+}
 
 async function updateGitStatus() {
     gitChanges.innerHTML = '<div style="padding:10px; font-size:12px; color:#666;">Scanning repository...</div>';

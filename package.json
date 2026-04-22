@@ -24,7 +24,7 @@
   "homepage": "https://github.com/NavuluriBalaji/codeAct-IDE#readme",
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.86.0",
-    "@types/node": "^25.5.2",
+    "@types/node": "^20.15.1",
     "electron": "^41.2.0",
     "pyodide": "^0.29.3",
     "tsx": "^4.21.0",
