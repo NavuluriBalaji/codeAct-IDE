@@ -16,6 +16,7 @@ export class UIHandlers {
         this.initContextMenus();
         this.initSidebarTabs();
         this.initTerminalTabs();
+        this.initSymbolOutline();
     }
 
     private initKeyboardShortcuts() {
@@ -182,6 +183,7 @@ export class UIHandlers {
     private toggleGoToFile() {
         const modal = document.getElementById('goToFileModal') as HTMLElement;
         const input = document.getElementById('goToFileInput') as HTMLInputElement;
+        const results = document.getElementById('fileSearchResults') as HTMLElement;
         
         this.goToFileOpen = !this.goToFileOpen;
         modal.classList.toggle('hidden');
@@ -189,12 +191,181 @@ export class UIHandlers {
         if (this.goToFileOpen) {
             input.focus();
             input.value = '';
+            
+            // Set up search
+            const files = (window as any).getWorkspaceFiles ? (window as any).getWorkspaceFiles() : [];
+            this.renderFileSearchResults(files, results);
+            
+            const handleInput = (e: Event) => {
+                const query = (e.target as HTMLInputElement).value.toLowerCase();
+                const filtered = files.filter((f: any) => f.name.toLowerCase().includes(query) || f.path.toLowerCase().includes(query));
+                this.renderFileSearchResults(filtered, results);
+            };
+            
+            const handleKeydown = (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                    const selected = results.querySelector('.palette-result-item.selected') as HTMLElement;
+                    selected?.click();
+                }
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    this.selectNextCommand(results);
+                }
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    this.selectPrevCommand(results);
+                }
+            };
+
+            // Remove old listeners to avoid duplicates
+            const oldInput = input.cloneNode(true);
+            input.parentNode?.replaceChild(oldInput, input);
+            
+            const newInput = document.getElementById('goToFileInput') as HTMLInputElement;
+            newInput.focus();
+            newInput.addEventListener('input', handleInput);
+            newInput.addEventListener('keydown', handleKeydown);
         }
     }
 
+    private renderFileSearchResults(files: any[], resultsContainer: HTMLElement) {
+        resultsContainer.innerHTML = files.slice(0, 50).map((file, idx) => `
+            <div class="palette-result-item ${idx === 0 ? 'selected' : ''}" data-path="${file.path}" data-name="${file.name}">
+                <span>📄 ${file.name}</span>
+                <span class="palette-shortcut" style="font-size: 10px; color: var(--clr-muted);">${file.path}</span>
+            </div>
+        `).join('');
+
+        resultsContainer.querySelectorAll('.palette-result-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const path = (item as HTMLElement).getAttribute('data-path');
+                const name = (item as HTMLElement).getAttribute('data-name');
+                if (path && name && (window as any).openFileTab) {
+                    (window as any).openFileTab(path, name);
+                }
+                this.closeAllModals();
+            });
+        });
+    }
+
     private initSearchReplace() {
-        const searchBtn = document.getElementById('commandBtn') as HTMLElement;
-        searchBtn?.addEventListener('click', () => this.toggleSearchReplace());
+        const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+        const replaceInput = document.getElementById('replaceInput') as HTMLInputElement;
+        
+        searchInput?.addEventListener('input', () => this.performSearch());
+        
+        replaceInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                this.performReplaceAll();
+            }
+        });
+        
+        ['matchCase', 'matchWord', 'useRegex'].forEach(id => {
+            const btn = document.getElementById(id);
+            btn?.addEventListener('click', () => {
+                btn.classList.toggle('active');
+                btn.style.background = btn.classList.contains('active') ? 'var(--clr-accent)' : 'transparent';
+                btn.style.color = btn.classList.contains('active') ? '#000' : 'inherit';
+                this.performSearch();
+            });
+        });
+    }
+
+    private performSearch() {
+        const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+        const results = document.getElementById('searchResults') as HTMLElement;
+        const editor = (window as any).getActiveEditor?.();
+        
+        if (!editor || !searchInput.value) {
+            if (results) results.innerHTML = '';
+            return;
+        }
+        
+        const code = editor.state.doc.toString();
+        const query = searchInput.value;
+        const isRegex = document.getElementById('useRegex')?.classList.contains('active');
+        const matchCase = document.getElementById('matchCase')?.classList.contains('active');
+        const matchWord = document.getElementById('matchWord')?.classList.contains('active');
+        
+        let flags = 'g';
+        if (!matchCase) flags += 'i';
+        
+        let matches: any[] = [];
+        try {
+            let pattern = isRegex ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            if (matchWord) pattern = `\\b${pattern}\\b`;
+            
+            const regex = new RegExp(pattern, flags);
+            const lines = code.split('\n');
+            
+            lines.forEach((line: string, i: number) => {
+                let m;
+                while ((m = regex.exec(line)) !== null) {
+                    matches.push({ line: i + 1, text: line, index: m.index, length: m[0].length });
+                    if (!regex.global) break;
+                }
+            });
+        } catch (e) {
+            // Invalid regex
+        }
+        
+        if (results) {
+            results.innerHTML = matches.slice(0, 50).map(m => `
+                <div class="search-result-item" style="padding:6px; border-bottom:1px solid #333; font-size:12px; cursor:pointer;">
+                    <span style="color:var(--clr-muted); margin-right:8px;">Line ${m.line}</span>
+                    <span>${m.text.substring(0, 60).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+                </div>
+            `).join('');
+            
+            results.querySelectorAll('.search-result-item').forEach((item, idx) => {
+                item.addEventListener('click', () => {
+                    const match = matches[idx];
+                    const lineObj = editor.state.doc.line(Math.min(match.line, editor.state.doc.lines));
+                    const pos = lineObj.from + match.index;
+                    editor.dispatch({ selection: { anchor: pos, head: pos + match.length }, scrollIntoView: true });
+                });
+                item.addEventListener('mouseover', () => (item as HTMLElement).style.background = '#2a2a2a');
+                item.addEventListener('mouseout', () => (item as HTMLElement).style.background = 'transparent');
+            });
+        }
+    }
+
+    private performReplaceAll() {
+        const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+        const replaceInput = document.getElementById('replaceInput') as HTMLInputElement;
+        const editor = (window as any).getActiveEditor?.();
+        
+        if (!editor || !searchInput.value) return;
+        
+        const code = editor.state.doc.toString();
+        const query = searchInput.value;
+        const replaceWith = replaceInput.value;
+        const isRegex = document.getElementById('useRegex')?.classList.contains('active');
+        const matchCase = document.getElementById('matchCase')?.classList.contains('active');
+        const matchWord = document.getElementById('matchWord')?.classList.contains('active');
+        
+        let flags = 'g';
+        if (!matchCase) flags += 'i';
+        
+        try {
+            let pattern = isRegex ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            if (matchWord) pattern = `\\b${pattern}\\b`;
+            
+            const regex = new RegExp(pattern, flags);
+            const newCode = code.replace(regex, replaceWith);
+            
+            if (newCode !== code) {
+                editor.dispatch({ 
+                    changes: { from: 0, to: code.length, insert: newCode } 
+                });
+                this.performSearch();
+                this.showNotification('Replaced all occurrences', 'success');
+            } else {
+                this.showNotification('No occurrences found', 'info');
+            }
+        } catch (e) {
+            this.showNotification('Replace failed', 'error');
+        }
     }
 
     private toggleSearchReplace() {
@@ -212,6 +383,72 @@ export class UIHandlers {
     private initSettingsPanel() {
         const closeBtn = document.getElementById('closeSettings') as HTMLElement;
         closeBtn?.addEventListener('click', () => this.toggleSettingsPanel());
+        this.loadSettings();
+        this.bindSettings();
+    }
+
+    private loadSettings() {
+        const settings = JSON.parse(localStorage.getItem('codeact_settings') || '{}');
+        
+        const fontSize = document.getElementById('fontSizeSetting') as HTMLInputElement;
+        const tabSize = document.getElementById('tabSizeSetting') as HTMLInputElement;
+        const wordWrap = document.getElementById('wordWrapSetting') as HTMLInputElement;
+        const autoSave = document.getElementById('autoSaveSetting') as HTMLSelectElement;
+        const model = document.getElementById('modelSetting') as HTMLSelectElement;
+        const temp = document.getElementById('temperatureSetting') as HTMLInputElement;
+        const apiKey = document.getElementById('apiKeySetting') as HTMLInputElement;
+
+        if (fontSize && settings.fontSize) fontSize.value = settings.fontSize;
+        if (tabSize && settings.tabSize) tabSize.value = settings.tabSize;
+        if (wordWrap && settings.wordWrap !== undefined) wordWrap.checked = settings.wordWrap;
+        if (autoSave && settings.autoSave) autoSave.value = settings.autoSave;
+        if (model && settings.model) model.value = settings.model;
+        if (temp && settings.temperature) temp.value = settings.temperature;
+        if (apiKey && settings.apiKey) apiKey.value = settings.apiKey;
+        
+        this.applySettings(settings);
+    }
+
+    private bindSettings() {
+        const inputs = [
+            'fontSizeSetting', 'tabSizeSetting', 'wordWrapSetting', 
+            'autoSaveSetting', 'modelSetting', 'temperatureSetting', 'apiKeySetting'
+        ];
+        
+        inputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', () => this.saveSettings());
+            }
+        });
+    }
+
+    private saveSettings() {
+        const settings = {
+            fontSize: (document.getElementById('fontSizeSetting') as HTMLInputElement)?.value,
+            tabSize: (document.getElementById('tabSizeSetting') as HTMLInputElement)?.value,
+            wordWrap: (document.getElementById('wordWrapSetting') as HTMLInputElement)?.checked,
+            autoSave: (document.getElementById('autoSaveSetting') as HTMLSelectElement)?.value,
+            model: (document.getElementById('modelSetting') as HTMLSelectElement)?.value,
+            temperature: (document.getElementById('temperatureSetting') as HTMLInputElement)?.value,
+            apiKey: (document.getElementById('apiKeySetting') as HTMLInputElement)?.value,
+        };
+        
+        localStorage.setItem('codeact_settings', JSON.stringify(settings));
+        this.applySettings(settings);
+        this.showNotification('Settings saved', 'success');
+    }
+
+    private applySettings(settings: any) {
+        // Apply basic styles globally where possible
+        if (settings.fontSize) {
+            document.documentElement.style.setProperty('--editor-font-size', `${settings.fontSize}px`);
+            const editorContainers = document.querySelectorAll('.editor-instance');
+            editorContainers.forEach((el: any) => el.style.fontSize = `${settings.fontSize}px`);
+        }
+        if (settings.apiKey && (window as any).codeactAPI?.setApiKey) {
+            (window as any).codeactAPI.setApiKey(settings.apiKey);
+        }
     }
 
     private toggleSettingsPanel() {
@@ -223,6 +460,63 @@ export class UIHandlers {
     private initEditorSplitting() {
         const splitBtn = document.getElementById('splitEditorBtn') as HTMLElement;
         splitBtn?.addEventListener('click', () => this.toggleSplitEditor());
+    }
+
+    private initSymbolOutline() {
+        const outlineHeader = document.querySelector('.outline-header svg');
+        outlineHeader?.addEventListener('click', () => {
+            document.getElementById('symbolOutline')?.classList.add('hidden');
+        });
+        
+        // Expose update method so we can call it when opening
+        (window as any).updateSymbolOutline = () => this.updateSymbolOutline();
+    }
+
+    private updateSymbolOutline() {
+        const editor = (window as any).getActiveEditor?.();
+        if (!editor) return;
+        const code = editor.state.doc.toString();
+        
+        const symbols: { name: string, type: string, line: number }[] = [];
+        const lines = code.split('\n');
+        
+        lines.forEach((line: string, i: number) => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('function ') || trimmed.startsWith('async function ')) {
+                const match = trimmed.match(/function\s+([a-zA-Z0-9_]+)/);
+                if (match) symbols.push({ name: match[1], type: 'function', line: i + 1 });
+            } else if (trimmed.startsWith('class ')) {
+                const match = trimmed.match(/class\s+([a-zA-Z0-9_]+)/);
+                if (match) symbols.push({ name: match[1], type: 'class', line: i + 1 });
+            } else if (trimmed.includes('const ') && trimmed.includes(' = (') && trimmed.includes('=>')) {
+                const match = trimmed.match(/const\s+([a-zA-Z0-9_]+)/);
+                if (match) symbols.push({ name: match[1], type: 'function', line: i + 1 });
+            } else if (trimmed.startsWith('def ')) {
+                const match = trimmed.match(/def\s+([a-zA-Z0-9_]+)/);
+                if (match) symbols.push({ name: match[1], type: 'function', line: i + 1 });
+            }
+        });
+
+        const list = document.getElementById('symbolList') as HTMLElement;
+        if (list) {
+            list.innerHTML = symbols.map(s => `
+                <div class="symbol-item" data-line="${s.line}" style="padding: 4px 8px; cursor: pointer; display: flex; gap: 8px; font-size: 13px;">
+                    <span style="color: ${s.type === 'class' ? 'var(--clr-accent)' : '#88c0d0'}; width: 14px; text-align: center;">${s.type === 'class' ? 'C' : 'ƒ'}</span>
+                    <span>${s.name}</span>
+                </div>
+            `).join('');
+
+            list.querySelectorAll('.symbol-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const line = parseInt((item as HTMLElement).getAttribute('data-line') || '1');
+                    const lineObj = editor.state.doc.line(Math.min(line, editor.state.doc.lines));
+                    editor.dispatch({ selection: { anchor: lineObj.from, head: lineObj.from }, scrollIntoView: true });
+                    document.getElementById('symbolOutline')?.classList.add('hidden');
+                });
+                item.addEventListener('mouseover', () => (item as HTMLElement).style.background = '#2a2a2a');
+                item.addEventListener('mouseout', () => (item as HTMLElement).style.background = 'transparent');
+            });
+        }
     }
 
     private toggleSplitEditor() {
@@ -343,6 +637,13 @@ export class UIHandlers {
             'formatCode': () => this.formatCode(),
             'showProblems': () => this.showProblems(),
             'showGit': () => this.showGit(),
+            'goToSymbol': () => {
+                const outline = document.getElementById('symbolOutline') as HTMLElement;
+                if (outline) {
+                    outline.classList.remove('hidden');
+                    this.updateSymbolOutline();
+                }
+            },
         };
 
         actions[action]?.();

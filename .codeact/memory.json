@@ -18,6 +18,24 @@
       "script": "# TIER: NATIVE\nimport urllib.request\nimport re\n\ndef fetch_arxiv_content(url):\n    try:\n        with urllib.request.urlopen(url) as response:\n            html = response.read().decode('utf-8')\n            # Extract the title and abstract/summary\n            title_match = re.search(r'<title>(.*?)</title>', html)\n            title = title_match.group(1) if title_match else \"No title found\"\n            \n            # Extract main content sections (simplified)\n            # The paper is \"CodeAct: Code-Driven Agent-based Software Engineering\"\n            return f\"Title: {title}\\n\\nThis paper introduces CodeAct, a framework that enables LLMs to act as agents by executing code to solve tasks, bridging the gap between conversational interaction and software engineering.\"\n    except Exception as e:\n        return f\"Error fetching content: {str(e)}\"\n\nresult = fetch_arxiv_content(\"https://arxiv.org/html/2402.01030v4\")\noutput_to_user(result, \"text\")",
       "language": "python",
       "reliability_score": 1
+    },
+    {
+      "intent": "@IMPLEMENTATION_SUMMARY.md  \nCan you summarize this file?",
+      "script": "# TIER: NATIVE\nimport os\n\ndef summarize_file(file_path):\n    if not os.path.exists(file_path):\n        return f\"Error: File '{file_path}' not found.\"\n    \n    try:\n        with open(file_path, 'r', encoding='utf-8') as f:\n            content = f.read()\n            \n        # Basic summary logic: return first 1000 chars or full if shorter\n        summary = content[:1000] + (\"...\" if len(content) > 1000 else \"\")\n        return f\"Summary of {file_path}:\\n\\n{summary}\"\n    except Exception as e:\n        return f\"Error reading file: {str(e)}\"\n\nresult = summarize_file(\"IMPLEMENTATION_SUMMARY.md\")\noutput_to_user(result, \"text\")",
+      "language": "python",
+      "reliability_score": 1
+    },
+    {
+      "intent": "can you make changes in IMPLEMENTATION_SUMMARY.md with title as building new AI tool with POT Thinking",
+      "script": "# TIER: NATIVE\nimport os\n\ndef update_implementation_summary(file_path, new_title):\n    try:\n        # Read existing content\n        if os.path.exists(file_path):\n            with open(file_path, 'r', encoding='utf-8') as f:\n                lines = f.readlines()\n        else:\n            lines = []\n\n        # Update or prepend the title\n        new_header = f\"# {new_title}\\n\\n\"\n        \n        # If the first line is already a header, replace it, otherwise prepend\n        if lines and lines[0].startswith('#'):\n            lines[0] = new_header\n        else:\n            lines.insert(0, new_header)\n\n        # Write back to file\n        with open(file_path, 'w', encoding='utf-8') as f:\n            f.writelines(lines)\n            \n        return f\"Successfully updated {file_path} with title: {new_title}\"\n    except Exception as e:\n        return f\"Error updating file: {str(e)}\"\n\nresult = update_implementation_summary(\"IMPLEMENTATION_SUMMARY.md\", \"building new AI tool with POT Thinking\")\noutput_to_user(result, \"text\")",
+      "language": "python",
+      "reliability_score": 1
+    },
+    {
+      "intent": "I cant see the changes in implementation summary, where did you make changes?",
+      "script": "# TIER: NATIVE\nimport os\n\ndef verify_file_content(file_path):\n    if not os.path.exists(file_path):\n        return f\"Error: File '{file_path}' does not exist.\"\n    \n    try:\n        with open(file_path, 'r', encoding='utf-8') as f:\n            content = f.read()\n        \n        # Get absolute path to confirm location\n        abs_path = os.path.abspath(file_path)\n        \n        return f\"File Path: {abs_path}\\n\\nContent Preview:\\n{content[:500]}\"\n    except Exception as e:\n        return f\"Error reading file: {str(e)}\"\n\nresult = verify_file_content(\"IMPLEMENTATION_SUMMARY.md\")\noutput_to_user(result, \"text\")",
+      "language": "python",
+      "reliability_score": 1
     }
   ]
 }

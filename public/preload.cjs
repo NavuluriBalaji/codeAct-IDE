@@ -13,5 +13,6 @@ contextBridge.exposeInMainWorld('codeactAPI', {
     spawnTerminal: () => ipcRenderer.invoke('spawn-terminal'),
     terminalInput: (data) => ipcRenderer.send('terminal-input', data),
     onTerminalOutput: (callback) => ipcRenderer.on('terminal-output', (_event, value) => callback(value)),
-    onToken: (callback) => ipcRenderer.on('llm-token', (_event, value) => callback(value))
+    onToken: (callback) => ipcRenderer.on('llm-token', (_event, value) => callback(value)),
+    setApiKey: (key) => ipcRenderer.invoke('set-api-key', key)
 });

@@ -15,8 +15,27 @@ import * as pty from 'node-pty';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const kernel = new AgentKernel();
-const mediator = new MediatorAgent();
+let kernel: AgentKernel | null = null;
+let mediator: MediatorAgent | null = null;
+let currentApiKey = process.env.GEMINI_API_KEY || '';
+
+ipcMain.handle('set-api-key', (ev, key) => {
+    currentApiKey = key;
+    kernel = null;
+    mediator = null;
+    return { success: true };
+});
+
+function getKernel() {
+    if (!kernel) kernel = new AgentKernel(currentApiKey);
+    return kernel;
+}
+
+function getMediator() {
+    if (!mediator) mediator = new MediatorAgent(currentApiKey);
+    return mediator;
+}
+
 initPyodide().catch(console.error);
 
 let mainWindow: BrowserWindow | null = null;
@@ -90,7 +109,7 @@ ipcMain.handle('execute-loop', async (event, query, context) => {
 
         // PHASE 1: Mediator
         event.sender.send('llm-token', "=== MEDIATOR PHASE ===\n[+] Determining intent...\n\n");
-        const mediatorScript = await mediator.parseQuery(query, (t) => event.sender.send('llm-token', t));
+        const mediatorScript = await getMediator().parseQuery(query, (t) => event.sender.send('llm-token', t));
         const medResult = await runInWasm(mediatorScript);
         if (medResult.exit_code !== 0) throw new Error("Mediator failed");
 
@@ -101,7 +120,7 @@ ipcMain.handle('execute-loop', async (event, query, context) => {
         event.sender.send('llm-token', "\n\n=== KERNEL PHASE ===\n[+] Checking Action Library...\n");
         const actionLibrary = memory.getAllScripts();
         
-        const script = await kernel.generateThoughtScript(
+        const script = await getKernel().generateThoughtScript(
             state, 
             query, 
             context, 
@@ -121,7 +140,7 @@ ipcMain.handle('execute-loop', async (event, query, context) => {
 
         // PHASE 4: Synthesis & Learning
         event.sender.send('llm-token', "\n\n=== SYNTHESIS PHASE ===\n[+] Summarizing & Updating Library...\n\n");
-        const finalAnswer = await kernel.synthesizeResponse(query, result.stdout || result.stderr);
+        const finalAnswer = await getKernel().synthesizeResponse(query, result.stdout || result.stderr);
 
         if (result.exit_code === 0) {
             memory.addScript({ intent: query, script, language: 'python', reliability_score: 1.0 });

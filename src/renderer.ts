@@ -16,7 +16,7 @@ const qs = (id: string) => document.getElementById(id) as HTMLElement;
 const runBtn = qs('runBtn') as HTMLButtonElement;
 const queryInput = qs('queryInput') as HTMLTextAreaElement;
 const aiScroll = qs('aiScroll');
-const statusText = qs('status');
+const statusText = qs('statusMessage');
 const fileTree = qs('fileTree');
 const openFolderBtn = qs('openFolderBtn');
 const openFolderMenu = qs('openFolderMenu');
@@ -35,8 +35,13 @@ let openFiles: { path: string; name: string; state?: EditorState }[] = [];
 let workspaceFileCache: { path: string; name: string }[] = [];
 let activeFilePath: string | null = null;
 let activeWorkspacePath: string | null = null;
-let editor: EditorView | null = null;
+let editor: any = null;
 let currentTraceBox: HTMLElement | null = null;
+
+// Expose for UIHandlers
+(window as any).getWorkspaceFiles = () => workspaceFileCache;
+(window as any).openFileTab = (p: string, n: string) => addTab(p, n);
+(window as any).getActiveEditor = () => editor;
 
 // Tab Scroll Controls
 scrollLeft.addEventListener('click', () => tabScroller.scrollBy({ left: -200, behavior: 'smooth' }));
@@ -138,8 +143,8 @@ const handleOpenFolder = async () => {
     const res = await window.codeactAPI.openFolder();
     if (res.success) initWorkspace();
 };
-openFolderBtn.addEventListener('click', handleOpenFolder);
-openFolderMenu.addEventListener('click', handleOpenFolder);
+if (openFolderBtn) openFolderBtn.addEventListener('click', handleOpenFolder);
+if (openFolderMenu) openFolderMenu.addEventListener('click', handleOpenFolder);
 
 async function initWorkspace() {
     // @ts-ignore
@@ -257,6 +262,35 @@ async function updateGitStatus() {
     gitChanges.innerHTML = '<div style="padding:10px; font-size:12px; color:#666;">Scanning repository...</div>';
     // @ts-ignore
     await window.codeactAPI.executeLoop("Run 'git status --short' and return the list of files");
+}
+
+const commitBtn = qs('commitBtn') as HTMLButtonElement;
+const commitMsg = qs('commitMsg') as HTMLTextAreaElement;
+
+if (commitBtn && commitMsg) {
+    commitBtn.addEventListener('click', async () => {
+        const msg = commitMsg.value.trim();
+        if (!msg) return;
+        
+        const originalText = commitBtn.innerText;
+        commitBtn.innerText = "Committing...";
+        commitBtn.disabled = true;
+        
+        // @ts-ignore
+        await window.codeactAPI.executeLoop(`Run git add . && git commit -m "${msg.replace(/"/g, '\\"')}"`);
+        
+        commitBtn.innerText = originalText;
+        commitBtn.disabled = false;
+        commitMsg.value = "";
+        updateGitStatus();
+    });
+    
+    commitMsg.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'Enter') {
+            e.preventDefault();
+            commitBtn.click();
+        }
+    });
 }
 
 const tc = qs('terminalContainer');

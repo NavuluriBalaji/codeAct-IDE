@@ -1,4 +1,5 @@
-# CodeACT IDE - Implementation Summary
+# building new AI tool with POT Thinking
+
 
 ## What Was Built
 
