@@ -547,19 +547,33 @@ export class UIHandlers {
 
     private initSidebarTabs() {
         document.querySelectorAll('.sidebar-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
+            tab.addEventListener('click', (event) => {
                 const view = (tab as HTMLElement).getAttribute('data-view');
-                this.switchSidebarView(view || '');
+                this.switchSidebarView(view || '', event);
             });
         });
     }
 
-    private switchSidebarView(view: string) {
+    private switchSidebarView(view: string, event: Event) {
+        const tab = event.currentTarget as HTMLElement;
+        const sidebar = document.querySelector('.codeic-sidebar') as HTMLElement;
+        const resizer = document.getElementById('sidebarResizer');
+        
+        if (tab.classList.contains('active')) {
+            const isHidden = sidebar.style.display === 'none';
+            sidebar.style.display = isHidden ? 'flex' : 'none';
+            if (resizer) resizer.style.display = isHidden ? 'block' : 'none';
+            return;
+        }
+
+        sidebar.style.display = 'flex';
+        if (resizer) resizer.style.display = 'block';
+
         // Toggle active tab
-        document.querySelectorAll('.sidebar-tab').forEach(tab => {
-            tab.classList.remove('active');
+        document.querySelectorAll('.sidebar-tab').forEach(t => {
+            t.classList.remove('active');
         });
-        (event?.target as HTMLElement)?.classList.add('active');
+        tab.classList.add('active');
 
         // Toggle sections
         document.querySelectorAll('.explorer-section').forEach(section => {

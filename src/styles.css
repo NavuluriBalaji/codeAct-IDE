@@ -235,6 +235,9 @@ hr {
 .explorer-section {
     flex: 1;
     padding: 20px 10px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
 }
 
 .explorer-header {
@@ -273,6 +276,14 @@ hr {
     background: var(--bg-accent);
     color: var(--clr-accent);
     font-weight: 500;
+}
+
+.folder-caret {
+    transition: transform 0.2s ease;
+    margin-right: 2px;
+}
+.folder-caret.open {
+    transform: rotate(90deg);
 }
 
 /* Main Content Styling */
@@ -377,8 +388,18 @@ hr {
     overflow: hidden;
 }
 
+.editor-main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    height: 100%;
+}
+
 .editor-instance {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
 /* AI Panel Styling */
@@ -598,6 +619,11 @@ hr {
 /* CodeMirror Customization */
 .cm-editor {
     padding: 10px;
+    flex: 1;
+    height: 100%;
+}
+.cm-scroller {
+    overflow: auto !important;
 }
 .cm-gutters {
     background-color: transparent !important;
@@ -1434,4 +1460,66 @@ hr {
 .mention-row:hover {
     background: #222;
     color: var(--clr-accent);
+}
+
+
+/* Added styles for search and source control panels */
+.search-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.search-input-wrapper input {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 8px 10px;
+    color: #fff;
+    font-size: 13px;
+    outline: none;
+}
+
+.search-input-wrapper input:focus {
+    border-color: var(--clr-accent);
+}
+
+.commit-box {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.commit-box textarea {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px;
+    color: #fff;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+}
+
+.commit-box textarea:focus {
+    border-color: var(--clr-accent);
+}
+
+.commit-box button {
+    background: var(--clr-accent);
+    color: #000;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.commit-box button:hover {
+    filter: brightness(1.1);
 }

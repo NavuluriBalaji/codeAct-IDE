@@ -178,8 +178,9 @@ async function renderFolder(path, parent, depth = 0) {
         el.draggable = true;
         el.addEventListener('dragstart', (e) => { e.dataTransfer?.setData('text/plain', item.path); });
         el.style.paddingLeft = `${20 + (depth * 15)}px`;
+        const arrow = item.isDirectory ? `<svg class="folder-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>` : `<span style="width:12px;display:inline-block"></span>`;
         const ic = item.isDirectory ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2Z"/></svg>` : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-        el.innerHTML = `${ic}<span>${item.name}</span>`;
+        el.innerHTML = `${arrow}${ic}<span>${item.name}</span>`;
         cont.appendChild(el);
         const sub = document.createElement('div');
         sub.className = 'sub-folder';
@@ -188,9 +189,17 @@ async function renderFolder(path, parent, depth = 0) {
         el.addEventListener('click', async (e) => {
             e.stopPropagation();
             if (item.isDirectory) {
+                const caret = el.querySelector('.folder-caret');
                 if (sub.innerHTML === '')
                     await renderFolder(item.path, sub, depth + 1);
-                sub.style.display = sub.style.display === 'none' ? 'block' : 'none';
+                const isHidden = sub.style.display === 'none';
+                sub.style.display = isHidden ? 'block' : 'none';
+                if (caret) {
+                    if (isHidden)
+                        caret.classList.add('open');
+                    else
+                        caret.classList.remove('open');
+                }
             }
             else {
                 addTab(item.path, item.name);
@@ -362,35 +371,11 @@ trm.onData(d => {
 window.codeactAPI.onTerminalOutput(d => trm.write(d));
 window.addEventListener('resize', () => fi.fit());
 const sT = document.querySelectorAll('.sidebar-tab');
-sT.forEach((tab, index) => {
+sT.forEach((tab) => {
     tab.addEventListener('click', () => {
-        const act = tab.classList.contains('active');
-        const side = document.querySelector('.codeic-sidebar');
-        const res = qs('sidebarResizer');
-        if (act) {
-            const hid = side.style.display === 'none';
-            side.style.display = hid ? 'flex' : 'none';
-            res.style.display = hid ? 'block' : 'none';
-            if (hid)
-                tab.classList.add('active');
-            else
-                tab.classList.remove('active');
-        }
-        else {
-            sT.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            side.style.display = 'flex';
-            res.style.display = 'block';
-            if (index === 0) {
-                explorerSection.style.display = 'block';
-                sourceControlSection.style.display = 'none';
-            }
-            else if (index === 1) {
-                explorerSection.style.display = 'none';
-                sourceControlSection.style.display = 'block';
-                updateGitStatus();
-            }
-        }
+        const view = tab.getAttribute('data-view');
+        if (view === 'scm')
+            updateGitStatus();
     });
 });
 initWorkspace();
