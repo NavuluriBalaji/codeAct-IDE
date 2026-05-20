@@ -5,13 +5,16 @@ import { python } from "@codemirror/lang-python";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import UIHandlers from './ui-handlers.js';
 // @ts-ignore
 import '@xterm/xterm/css/xterm.css';
+// Initialize UI Handlers for Cursor-like features
+const uiHandlers = new UIHandlers();
 const qs = (id) => document.getElementById(id);
 const runBtn = qs('runBtn');
 const queryInput = qs('queryInput');
 const aiScroll = qs('aiScroll');
-const statusText = qs('status');
+const statusText = qs('statusMessage');
 const fileTree = qs('fileTree');
 const openFolderBtn = qs('openFolderBtn');
 const openFolderMenu = qs('openFolderMenu');
@@ -31,6 +34,10 @@ let activeFilePath = null;
 let activeWorkspacePath = null;
 let editor = null;
 let currentTraceBox = null;
+// Expose for UIHandlers
+window.getWorkspaceFiles = () => workspaceFileCache;
+window.openFileTab = (p, n) => addTab(p, n);
+window.getActiveEditor = () => editor;
 // Tab Scroll Controls
 scrollLeft.addEventListener('click', () => tabScroller.scrollBy({ left: -200, behavior: 'smooth' }));
 scrollRight.addEventListener('click', () => tabScroller.scrollBy({ left: 200, behavior: 'smooth' }));
@@ -142,8 +149,10 @@ const handleOpenFolder = async () => {
     if (res.success)
         initWorkspace();
 };
-openFolderBtn.addEventListener('click', handleOpenFolder);
-openFolderMenu.addEventListener('click', handleOpenFolder);
+if (openFolderBtn)
+    openFolderBtn.addEventListener('click', handleOpenFolder);
+if (openFolderMenu)
+    openFolderMenu.addEventListener('click', handleOpenFolder);
 async function initWorkspace() {
     // @ts-ignore
     activeWorkspacePath = await window.codeactAPI.getWorkspace();
@@ -169,8 +178,9 @@ async function renderFolder(path, parent, depth = 0) {
         el.draggable = true;
         el.addEventListener('dragstart', (e) => { e.dataTransfer?.setData('text/plain', item.path); });
         el.style.paddingLeft = `${20 + (depth * 15)}px`;
+        const arrow = item.isDirectory ? `<svg class="folder-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>` : `<span style="width:12px;display:inline-block"></span>`;
         const ic = item.isDirectory ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2Z"/></svg>` : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-        el.innerHTML = `${ic}<span>${item.name}</span>`;
+        el.innerHTML = `${arrow}${ic}<span>${item.name}</span>`;
         cont.appendChild(el);
         const sub = document.createElement('div');
         sub.className = 'sub-folder';
@@ -179,9 +189,17 @@ async function renderFolder(path, parent, depth = 0) {
         el.addEventListener('click', async (e) => {
             e.stopPropagation();
             if (item.isDirectory) {
+                const caret = el.querySelector('.folder-caret');
                 if (sub.innerHTML === '')
                     await renderFolder(item.path, sub, depth + 1);
-                sub.style.display = sub.style.display === 'none' ? 'block' : 'none';
+                const isHidden = sub.style.display === 'none';
+                sub.style.display = isHidden ? 'block' : 'none';
+                if (caret) {
+                    if (isHidden)
+                        caret.classList.add('open');
+                    else
+                        caret.classList.remove('open');
+                }
             }
             else {
                 addTab(item.path, item.name);
@@ -277,10 +295,66 @@ window.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key === 's') {
     e.preventDefault();
     saveFile();
 } });
+// Menu action handlers
+document.querySelectorAll('[data-action]').forEach(item => {
+    item.addEventListener('click', (e) => {
+        const action = item.getAttribute('data-action');
+        handleMenuAction(action || '');
+    });
+});
+function handleMenuAction(action) {
+    const handlers = {
+        'newFile': () => { addTab('untitled.txt', 'untitled.txt'); },
+        'newFolder': () => alert('New folder functionality'),
+        'openFile': () => alert('Open file functionality'),
+        'saveFile': () => saveFile(),
+        'saveAllFiles': () => { openFiles.forEach(f => saveFile()); },
+        'saveAs': () => alert('Save as functionality'),
+        'closeFile': () => closeTab(activeFilePath || ''),
+        'closeAll': () => { openFiles = []; activeFilePath = null; if (editor)
+            editor.destroy(); updateTabUI(); },
+        'toggleSidebar': () => { const sidebar = document.querySelector('.codeic-sidebar'); sidebar.style.display = sidebar.style.display === 'none' ? 'flex' : 'none'; },
+    };
+    handlers[action]?.();
+}
+function switchTerminalTab(tab) {
+    document.querySelectorAll('.terminal-tab-item').forEach(t => t.classList.remove('terminal-tab-active'));
+    const activeTab = document.querySelector(`.terminal-tab-item[data-tab="${tab}"]`);
+    if (activeTab)
+        activeTab.classList.add('terminal-tab-active');
+    document.querySelectorAll('.terminal-content').forEach(content => content.classList.add('hidden'));
+    const activeContent = document.getElementById(tab + 'Pane');
+    if (activeContent)
+        activeContent.classList.remove('hidden');
+}
 async function updateGitStatus() {
     gitChanges.innerHTML = '<div style="padding:10px; font-size:12px; color:#666;">Scanning repository...</div>';
     // @ts-ignore
     await window.codeactAPI.executeLoop("Run 'git status --short' and return the list of files");
+}
+const commitBtn = qs('commitBtn');
+const commitMsg = qs('commitMsg');
+if (commitBtn && commitMsg) {
+    commitBtn.addEventListener('click', async () => {
+        const msg = commitMsg.value.trim();
+        if (!msg)
+            return;
+        const originalText = commitBtn.innerText;
+        commitBtn.innerText = "Committing...";
+        commitBtn.disabled = true;
+        // @ts-ignore
+        await window.codeactAPI.executeLoop(`Run git add . && git commit -m "${msg.replace(/"/g, '\\"')}"`);
+        commitBtn.innerText = originalText;
+        commitBtn.disabled = false;
+        commitMsg.value = "";
+        updateGitStatus();
+    });
+    commitMsg.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'Enter') {
+            e.preventDefault();
+            commitBtn.click();
+        }
+    });
 }
 const tc = qs('terminalContainer');
 const trm = new Terminal({ theme: { background: '#000', foreground: '#ccc', cursor: '#BAFF39' }, fontSize: 13, fontFamily: 'JetBrains Mono, monospace' });
@@ -297,35 +371,11 @@ trm.onData(d => {
 window.codeactAPI.onTerminalOutput(d => trm.write(d));
 window.addEventListener('resize', () => fi.fit());
 const sT = document.querySelectorAll('.sidebar-tab');
-sT.forEach((tab, index) => {
+sT.forEach((tab) => {
     tab.addEventListener('click', () => {
-        const act = tab.classList.contains('active');
-        const side = document.querySelector('.codeic-sidebar');
-        const res = qs('sidebarResizer');
-        if (act) {
-            const hid = side.style.display === 'none';
-            side.style.display = hid ? 'flex' : 'none';
-            res.style.display = hid ? 'block' : 'none';
-            if (hid)
-                tab.classList.add('active');
-            else
-                tab.classList.remove('active');
-        }
-        else {
-            sT.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            side.style.display = 'flex';
-            res.style.display = 'block';
-            if (index === 0) {
-                explorerSection.style.display = 'block';
-                sourceControlSection.style.display = 'none';
-            }
-            else if (index === 1) {
-                explorerSection.style.display = 'none';
-                sourceControlSection.style.display = 'block';
-                updateGitStatus();
-            }
-        }
+        const view = tab.getAttribute('data-view');
+        if (view === 'scm')
+            updateGitStatus();
     });
 });
 initWorkspace();
